@@ -1,4 +1,4 @@
-dmm2xm v1.3 (18 Nov 2007)
+dmm2xm v1.4 (14 Apr 2013)
 =========================
 
 
@@ -20,9 +20,8 @@ Description
 dmm2xm converts music from DMM to XM format, which is playable in
 many players and editable in trackers.
 
-dmm2xm tries to do exact conversion, and even more, adds stereo,
-which results in better sound, however, there are some special
-cases (see "Messages" section).
+dmm2xm tries to do exact conversion, and even more, adds stereo
+and applies some fixes to samples, which results in better sound.
 
 Starting from version 1.0, backward conversion is available, from
 XM and MOD to DMM. Most of simple songs converting pretty good,
@@ -52,7 +51,8 @@ dmm2xm searches for instruments in 5 places:
 Instruments should be named like "DMI00nn.smp".
 
 dmm2xm has the following syntax:
-dmm2xm [-q <number>] [-o <file>] [-f <name>] [-m] <song.dmm>|<file.wad>
+dmm2xm [-q <number>] [-r <number>] [-o <file>] [-f <name>] [-m]
+       <song.dmm>|<file.wad>
 
 Examples:
 dmm2xm -q 8 -o ñ:\music\doom2d\best.xm BEST.dmm
@@ -68,8 +68,12 @@ The bigger it is, the less space used to record notes.
 In DMM there are usually delays of 8, 12, 16 and greater, so,
 in most cases, you can round to 4 without fear of misplacing notes.
 Quantization = 4 is default value.
-You should try to set maximum quantization that doesn't misplace notes.
+You should try to set maximum quantization that doesn't give warnings.
 For example, for "ALLRIGHT.dmm", best quantization is 8.
+
+-r, Rows - maximum number of rows pattern can have. For your editing
+convenience you may set a value different from default 256, for
+example, 32, 48, 64 or 96.
 
 -o parameter allows to save resulting XM with different
 name or in different place.
@@ -131,7 +135,7 @@ Messages
 "Error: file not found!"
 Point to existent file.
 
-"Error: invalid quantization value, should be 1 <= Q <= 256."
+"Error: invalid quantization value, should be 1 <= Q <= 31."
 Set valid quantization.
 
 "Error: unknown DMM format!"
@@ -151,12 +155,6 @@ Note: there are some russian filenames, program may fail on them.
 You can get "possibly broken data" message only if you have
 damaged (incorrectly ripped) DMM files.
 
-"Warning: too many notes in one pattern, lost data, set bigger
-quantization!"
-Message means that some notes was lost because of limit of notes in one
-pattern (1024). You need to set larger quantization to avoid that.
-That occurs only with single DMM from doom2d.wad.
-
 "Warning: found more than 11 instruments, stereo is not available."
 You have found non-standard DMM with large number of instruments.
 Unfortunately, there's no table in dmm2xm to make that many
@@ -167,6 +165,19 @@ News
 ====
 
 What's new in current version of dmm2xm.
+
+v1.4 [14.04.2013]
+- Changed the way notes are recorded, now delay effect is used to fit
+  patterns better. Conversion is very precise now!
+- Also pattern delay effect used - it's recommended to avoid it as not
+  all XM players support it.
+- If number of rows in pattern is bigger than specified maximum
+  (256 by default), they are separated to several patterns.
+- The program now displays more information.
+- Automatic correction of some samples from Doom2D.
+- Changed handling of command line parameters. With -f and no input
+  file doom2d.wad is assumed.
+- If there's no pattern order in DMM, the program will generate it.
 
 v1.3 [18.11.2007]
 - Small fixes.
@@ -219,8 +230,8 @@ Future
 
 What is planned to be implemented in future versions of dmm2xm:
 
-- Split patterns for convenient editing
-- Improve backward conversion
+- Improve backward conversion? Though I tell you guys, you better
+  support standard tracker formats!
 
 
 Acknowledgements
@@ -234,11 +245,14 @@ Thanks to Jabberwock for testing.
 
 Thanks to -=CHE@TER=- for WAD reader unit.
 
+Thanks to Black Doomer for pointing me to a bug with too large
+patterns.
+
 
 Other
 =====
 
-A few DMM songs need to be edited after conversion.
+DMM songs from Doom2D are converted exactly.
 
 In source folder you can find sources of the dmm2xm.
 They will compile with any Delphi version, starting from 4,
@@ -246,7 +260,7 @@ and also with Free Pascal, starting from version 2.0.4.
 
 If you find bugs or have anything to say,
 you can contact me
-- by email: grompe@yandex.ru
-- by icq: 9070033
+- by email/gtalk/xmpp: i@grompe.org.ru
+- by site: http://grompe.org.ru/
 
 Regards, Grom PE

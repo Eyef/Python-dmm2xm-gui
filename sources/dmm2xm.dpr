@@ -5,22 +5,17 @@ uses Windows,Messages,BeRoXM,Streams,WadFile;
 {$R dmm2xm.res}
 {
   TODO:
-  - Split patterns for convenient editing and in case of rows overflow (>1024)
-
   - Fix bug with big delay (xm->dmm->xm(buggy))
   - Support volume slide down by turning off note (xm->dmm)
   - Support default volume in samples (xm->dmm)
   - Handle note cut and note delay, maybe more (xm->dmm)
   - Option to convert directly to WAD ;)
 
-  Non-user changes:
-  - Make XM global?
-
   Also, search for "todo" strings
 }
 const
   DMM_8_CHANNELS=8;
-  DMM2XM_VERSION_TEXT='dmm2xm v1.3 [18 Nov 2007] by Grom PE';
+  DMM2XM_VERSION_TEXT='dmm2xm v1.4 [14 Apr 2013] by Grom PE';
 
   MAX_SAMPLES=11;
   PAN_SETTING:array[0..MAX_SAMPLES-1] of array[0..MAX_SAMPLES-1] of byte=(
@@ -155,6 +150,9 @@ var
   UsedChannels:integer;
   LoadingFromWad:boolean;
   NoStereo:boolean;
+  // dmm2xm v1.4
+  MinNoteDelay:integer;
+  MaxRows:integer;
 
 function LoadInstrumentFromDMI(Instrument:TInstrument; DMIInstrumentName:string;
   InstrumentNumber,InstrumentsTotal:integer; Wad:TWadFile):boolean;
@@ -229,6 +227,72 @@ begin
     Instrument.Sample[0].LoopLength:=DMILoopLength;
   end;
 
+  // dmm2xm v1.4: sample-specific fixes
+  if (DMIInstrumentName='DMI0011') and (DMILoopStart=3326) then
+  begin
+    Instrument.Sample[0].PingPongLoop:=true;
+    Instrument.Sample[0].LoopLength:=5375;
+  end;
+  if (DMIInstrumentName='DMI0063') and (DMILoopStart=720) then
+  begin
+    Instrument.Sample[0].LoopLength:=6982;
+  end;
+  if (DMIInstrumentName='DMI0018') and (DMILoopLength=14868) then
+  begin
+    Instrument.Sample[0].PingPongLoop:=true;
+    Instrument.Sample[0].LoopStart:=2168;
+    Instrument.Sample[0].LoopLength:=8338;
+  end;
+  if (DMIInstrumentName='DMI0055') and (DMILoopStart=3394) then
+  begin
+    Instrument.Sample[0].PingPongLoop:=true;
+    Instrument.Sample[0].LoopStart:=1897;
+    Instrument.Sample[0].LoopLength:=4377;
+  end;
+  if (DMIInstrumentName='DMI0059') and (DMILoopLength=14864) then
+  begin
+    Instrument.Sample[0].PingPongLoop:=true;
+    Instrument.Sample[0].LoopStart:=2168;
+    Instrument.Sample[0].LoopLength:=8595;
+  end;
+  if (DMIInstrumentName='DMI0040') and (DMILoopStart=4010) then
+  begin
+    Instrument.Sample[0].PingPongLoop:=true;
+  end;
+  if (DMIInstrumentName='DMI0004') and (DMILoopStart=14856) then
+  begin
+    Instrument.Sample[0].LoopLength:=7712;
+  end;
+  if (DMIInstrumentName='DMI0071') and (DMILoopStart=24) then
+  begin
+    Instrument.Sample[0].PingPongLoop:=true;
+    Instrument.Sample[0].LoopStart:=428;
+    Instrument.Sample[0].LoopLength:=7525;
+  end;
+  if (DMIInstrumentName='DMI0022') and (DMILoopStart=4250) then
+  begin
+    Instrument.Sample[0].PingPongLoop:=true;
+    Instrument.Sample[0].LoopStart:=905;
+    Instrument.Sample[0].LoopLength:=4606;
+  end;
+  if (DMIInstrumentName='DMI0050') and (DMILoopLength=20000) then
+  begin
+    Instrument.Sample[0].PingPongLoop:=true;
+    Instrument.Sample[0].LoopLength:=20946;
+  end;
+  if (DMIInstrumentName='DMI0074') and (DMILoopStart=6614) then
+  begin
+    Instrument.Sample[0].PingPongLoop:=true;
+    Instrument.Sample[0].LoopStart:=6339;
+    Instrument.Sample[0].LoopLength:=738;
+  end;
+  if (DMIInstrumentName='DMI0045') and (DMILoopStart=1000) then
+  begin
+    Instrument.Sample[0].PingPongLoop:=true;
+    Instrument.Sample[0].LoopStart:=80;
+    Instrument.Sample[0].LoopLength:=9272;
+  end;
+
   SetLength(SampleBuffer,DMILength);
   if IndexInWad<>-1 then
   begin
@@ -244,46 +308,62 @@ begin
   Result:=True;
 end;
 
-procedure RecordPatternFromDMMPattern(Pattern:TPattern; DMMPattern:TDMMNotes; PatternNumber:integer);
+function RecordPatternsFromDMMPattern(XM:TXMModule; DMMPattern:TDMMNotes; PatternNumber, StartPatternNumber:integer):integer; // dmm2xm v1.4
 var
   DMMNote:TDMMNote;
   Counter,Delay,Row,Channel,NotesRecorded:integer;
   MaxNoteRow:integer;
   ResultVolume:integer;
+  // dmm2xm v1.4
+  MyNote,OldNote:TPatternNote;
+  CurrentChanDelay,MaxChanDelay,PutDelay,PushUp:integer;
+  CurrentChanNotes,MaxChanNotes:integer;
 begin
-  Pattern.Resize(1024,DMM_8_CHANNELS);
   MaxNoteRow:=0;
-  for Counter:=0 to DMM_8_CHANNELS-1 do Pattern.SetNote(0,Counter,MakeNote(NoteStop));
+  for Counter:=0 to DMM_8_CHANNELS-1 do
+  begin
+    XM.Pattern[StartPatternNumber].SetNote(0,Counter,MakeNote(NoteStop));
+  end;
   NotesRecorded:=0;
   Delay:=0;
   Row:=0;
   Channel:=0;
+  CurrentChanDelay:=0;
+  MaxChanDelay:=0;
+  CurrentChanNotes:=0;
+  MaxChanNotes:=0;
   repeat
     DMMNote:=DMMPattern[NotesRecorded];
-    if Delay mod Quantization<>0 then
-    begin
-      SetLength(MisalignedNotes,Length(MisalignedNotes)+1);
-      MisalignedNotes[Length(MisalignedNotes)-1].Delay:=Delay;
-      Delay:=RoundBy(Delay,Quantization);
-      MisalignedNotes[Length(MisalignedNotes)-1].NewDelay:=Delay;
-      MisalignedNotes[Length(MisalignedNotes)-1].Row:=Row;
-      MisalignedNotes[Length(MisalignedNotes)-1].Channel:=Channel+1;
-      MisalignedNotes[Length(MisalignedNotes)-1].Pattern:=PatternNumber;
-    end;
-    if Delay-Quantization>0 then Dec(Delay,Quantization) else Delay:=0;
-    if Delay=0 then
+    //if Delay mod Quantization<>0 then
+    //begin
+    //  SetLength(MisalignedNotes,Length(MisalignedNotes)+1);
+    //  MisalignedNotes[Length(MisalignedNotes)-1].Delay:=Delay;
+    //  MisalignedNotes[Length(MisalignedNotes)-1].NewDelay:=RoundBy(Delay,Quantization);
+    //  MisalignedNotes[Length(MisalignedNotes)-1].Row:=Row;
+    //  MisalignedNotes[Length(MisalignedNotes)-1].Channel:=Channel+1;
+    //  MisalignedNotes[Length(MisalignedNotes)-1].Pattern:=PatternNumber;
+    //end;
+    //if Delay=0 then
+    if Delay<Quantization then // dmm2xm v1.4
     begin
       Inc(NotesRecorded);
 
       if DMMNote.Volume=128 then
       begin
         Inc(Channel);
+        if MaxChanDelay<CurrentChanDelay then MaxChanDelay:=CurrentChanDelay;
+        if MaxChanNotes<CurrentChanNotes then MaxChanNotes:=CurrentChanNotes;
+        Delay:=0;
+        CurrentChanDelay:=0;
+        CurrentChanNotes:=0;
         Row:=0;
         Continue;
       end;
       if DMMNote.Note=254 then
       begin
-        Delay:=(DMMNote.Instrument*256)+DMMNote.Delay+Quantization;
+        // dmm2xm v1.4: removed old magic
+        Inc(Delay,(DMMNote.Instrument*256)+DMMNote.Delay);
+        Inc(CurrentChanDelay,(DMMNote.Instrument*256)+DMMNote.Delay);
         Continue;
       end;
 
@@ -292,26 +372,100 @@ begin
 
       if DMMNote.Volume>0 then
       begin
-        Pattern.SetNote(Row,Channel,MakeNote(DMMNote.Note+25,DMMNote.Instrument,ResultVolume));
+        PushUp:=0;
+        if Delay>0 then
+        begin
+          PutDelay:=Delay;
+          if PutDelay>15 then
+          begin
+            PutDelay:=15;
+            SetLength(MisalignedNotes,Length(MisalignedNotes)+1);
+            MisalignedNotes[Length(MisalignedNotes)-1].Delay:=Delay;
+            MisalignedNotes[Length(MisalignedNotes)-1].NewDelay:=PutDelay;
+            MisalignedNotes[Length(MisalignedNotes)-1].Row:=Row;
+            MisalignedNotes[Length(MisalignedNotes)-1].Channel:=Channel+1;
+            MisalignedNotes[Length(MisalignedNotes)-1].Pattern:=PatternNumber;
+          end;
+          MyNote:=MakeNote(DMMNote.Note+25,DMMNote.Instrument,ResultVolume,EffectExtendedEffects,PutDelay or ExtendedEffectNoteDelay shl 4);
+        end else if Delay<0 then
+        begin
+          PutDelay:=Quantization+Delay;
+          if PutDelay<=0 then
+          begin
+            Write2(#10'Warning: Wrong delay, choose smaller quantization!'#10);
+          end else begin
+            if PutDelay>15 then
+            begin
+              PutDelay:=15;
+              SetLength(MisalignedNotes,Length(MisalignedNotes)+1);
+              MisalignedNotes[Length(MisalignedNotes)-1].Delay:=Delay;
+              MisalignedNotes[Length(MisalignedNotes)-1].NewDelay:=PutDelay;
+              MisalignedNotes[Length(MisalignedNotes)-1].Row:=Row;
+              MisalignedNotes[Length(MisalignedNotes)-1].Channel:=Channel+1;
+              MisalignedNotes[Length(MisalignedNotes)-1].Pattern:=PatternNumber;
+            end;
+            MyNote:=MakeNote(DMMNote.Note+25,DMMNote.Instrument,ResultVolume,EffectExtendedEffects,PutDelay or ExtendedEffectNoteDelay shl 4);
+            PushUp:=1;
+          end;
+        end else begin
+          MyNote:=MakeNote(DMMNote.Note+25,DMMNote.Instrument,ResultVolume);
+        end;
+        OldNote:=XM.Pattern[StartPatternNumber+(Row-PushUp) div MaxRows].GetNote((Row-PushUp) mod MaxRows,Channel);
+        if (OldNote.Note<>0) and (OldNote.Note<>NoteStop) then
+        begin
+          Write2(#10'Warning: Note '+Int2Str(OldNote.Note)+' overwritten by '
+            +Int2Str(MyNote.Note)+' at pattern '+Int2Str(StartPatternNumber+(Row-PushUp) div MaxRows)
+            +' column '+Int2Str(Channel+1)+' row '+Int2Str(Row-PushUp)+', lost data! Set smaller quantization.'#10);
+        end;
+        XM.Pattern[StartPatternNumber+(Row-PushUp) div MaxRows].SetNote((Row-PushUp) mod MaxRows,Channel,MyNote);
+        Inc(CurrentChanNotes);
       end else begin
-        Pattern.SetNote(Row,Channel,MakeNote(NoteStop));
+        XM.Pattern[StartPatternNumber+Row div MaxRows].SetNote(Row mod MaxRows,Channel,MakeNote(NoteStop));
+        Inc(CurrentChanNotes);
       end;
       if UsedChannels<Channel+1 then UsedChannels:=Channel+1;
-
-      if DMMNote.Delay=0 then Delay:=256 else Delay:=DMMNote.Delay;
+      
+      // dmm2xm v1.4
+      if DMMNote.Delay=0 then
+      begin
+        Inc(Delay,256);
+        Inc(CurrentChanDelay,256);
+      end else begin
+        Inc(Delay,DMMNote.Delay);
+        Inc(CurrentChanDelay,DMMNote.Delay);
+      end;
+      if MinNoteDelay>Delay then MinNoteDelay:=Delay;
     end;
     Inc(Row);
     if MaxNoteRow<Row then MaxNoteRow:=Row;
+    Dec(Delay,Quantization);
   until NotesRecorded=Length(DMMPattern);
-  Inc(Row,RoundBy(Delay,Quantization) div Quantization);
-  if MaxNoteRow<Row then MaxNoteRow:=Row;
-  if MaxNoteRow>1024 then
+  // dmm2xm v1.4
+  Inc(Row,Delay div Quantization);
+  PutDelay:=MaxChanDelay mod Quantization;
+  if PutDelay<>0 then
   begin
-    Write2('Warning: too many notes in pattern '+Int2Str(PatternNumber)
-      +', lost data, set bigger quantization!'#10);
-    MaxNoteRow:=1024;
+    Write2(#10'Warning: '+Int2Str(PutDelay)+' ticks lost at the pattern end, trying to fix - not all players support this!'#10);
+    for Counter:=0 to UsedChannels do
+    begin
+      OldNote:=XM.Pattern[StartPatternNumber+MaxNoteRow div MaxRows].GetNote((MaxNoteRow-1) mod MaxRows,Counter);
+      if OldNote.Effect=0 then
+      begin
+        OldNote.Effect:=EffectExtraFinePorta;
+        OldNote.EffectParameter:=$60 or PutDelay;
+        XM.Pattern[StartPatternNumber+MaxNoteRow div MaxRows].SetNote((MaxNoteRow-1) mod MaxRows,Counter,OldNote);
+        PutDelay:=0;
+        break;
+      end;
+    end;
+    if PutDelay>0 then
+      Write2(#10'Warning: Effects are all occupied, couldn''t fix!'#10);
   end;
-  Pattern.Resize(MaxNoteRow,DMM_8_CHANNELS);
+  if MaxNoteRow<Row then MaxNoteRow:=Row;
+  if MaxNoteRow mod MaxRows<>0 then
+    XM.Pattern[StartPatternNumber+MaxNoteRow div MaxRows].Resize(MaxNoteRow mod MaxRows,DMM_8_CHANNELS);
+  Result:=(MaxNoteRow-1) div MaxRows+1; // number of patterns recorded
+  Write2('...ok, ticks: '+Int2Str(MaxChanDelay)+', notes: '+Int2Str(MaxChanNotes)+', rows: '+Int2Str(MaxNoteRow));
 end;
 
 // We consider note "NoteStop" when converting to DMM if it have zero volume also.
@@ -535,32 +689,31 @@ var
   // used for unpacking
   NotesRead,ChannelsFinished,NewPatternLength:integer;
   DMMPatterns:array of TDMMNotes;
-
-  Counter,Counter2:integer;
+  // dmm2xm v1.4
+  StartPatternNumber:byte;
+  DMM2XMPattern:array[0..255] of array[0..1] of byte; // 0 = shift, 1 = length
+  PatShift,PatLength:byte;
+  
+  Counter,Counter2,Counter3:integer;
 begin
   Randomize;
   if ParamCount=0 then
   begin
     Write2(#10+DMM2XM_VERSION_TEXT+#10
       +#10
-      +'Usage: dmm2xm [-q <number>] [-o <file>] [-f <name>] [-m]'#10
+      +'Usage: dmm2xm [-q <number>] [-r <number>] [-o <file>] [-f <name>] [-m]'#10
       +'              <song.dmm>|<file.wad>'#10
       +'Backward conversion: dmm2xm [-o <file>] <song.xm>|<song.mod>'#10
       +#10
       +'Parameters:'#10
       +'  -q   Set quantization. Default value: 4.'#10
+      +'  -r   Set max number of rows per pattern. Default value: 256.'#10
       +'  -o   Set output file. Default value: name of input file + extension.'#10
-      +'  -f   Specify DMM file to be converted from WAD.'#10
+      +'  -f   Specify DMM file to be converted from WAD. Default WAD: doom2d.wad'#10
       +'  -m   Leave converted song in mono.'#10
       +#10
       +'Note: Used DMI files (instruments) must be in same directory as DMM file'#10
       +'      or in DMI subfolder (dmi\*) and be without extension.'#10);
-    Exit;
-  end;
-  InputFileName:=ParamStr(ParamCount);
-  if not FileExists(InputFileName) then
-  begin
-    Write2('Error: file "'+InputFileName+'" not found!'#10);
     Exit;
   end;
 
@@ -571,33 +724,43 @@ begin
   DMMInWadName:='';
   OutputFileName:='';
   NoStereo:=false;
+  MaxRows:=256;
 
   Counter:=1;
   while Counter<=ParamCount do
   begin
     Parameter:=ParamStr(Counter);
-    Parameter2:=ParamStr(Counter+1);
-    if Parameter2<>'' then
+    Write2('"'+Parameter+'"'#10);
+    if Parameter='-q' then
     begin
-      if Parameter='-q' then
-      begin
-        Quantization:=Str2Int(Parameter2);
-        Inc(Counter);
-      end else if Parameter='-o' then
-      begin
-        OutputFileName:=Parameter2;
-        Inc(Counter);
-      end else if Parameter='-f' then
-      begin
-        DMMInWadName:=Parameter2;
-        Inc(Counter);
-      end;
-    end;
-    if Parameter='-m' then
+      Quantization:=Str2Int(ParamStr(Counter+1));
+      Inc(Counter);
+    end else if Parameter='-o' then
+    begin
+      OutputFileName:=ParamStr(Counter+1);
+      Inc(Counter);
+    end else if Parameter='-f' then
+    begin
+      DMMInWadName:=ParamStr(Counter+1);
+      InputFileName:='doom2d.wad';
+      Inc(Counter);
+    end else if Parameter='-r' then
+    begin
+      MaxRows:=Str2Int(ParamStr(Counter+1));
+      Inc(Counter);
+    end else if Parameter='-m' then
     begin
       NoStereo:=true;
+    end else begin
+      InputFileName:=Parameter;
     end;
     Inc(Counter);
+  end;
+
+  if not FileExists(InputFileName) then
+  begin
+    Write2('Error: File "'+InputFileName+'" not found!'#10);
+    Exit;
   end;
 
   // Backward conversion
@@ -608,7 +771,7 @@ begin
     if not XM.LoadFile(InputFileName) then
     begin
       XM.Destroy;
-      Write2('Error: couldn''t load "'+InputFileName+'"!'#10);
+      Write2('Error: Couldn''t load "'+InputFileName+'"!'#10);
       Exit;
     end;
     if OutputFileName='' then OutputFileName:=CutExtension(InputFileName)+'.dmm';
@@ -696,10 +859,19 @@ begin
     Exit;
   end;
 
-  if (Quantization<1) or (Quantization>256) then
+  if (Quantization<1) or (Quantization>31) then
   begin
-    Write2('Error: invalid quantization value, should be 1 <= Q <= 256.'#10);
+    Write2('Error: Invalid quantization value, should be 1 <= Q <= 31.'#10);
     Exit;
+  end;
+  if (MaxRows<1) or (MaxRows>1024) then
+  begin
+    Write2('Error: Invalid max rows value, should be 1 <= R <= 1024.'#10);
+    Exit;
+  end;
+  if (MaxRows>256) then
+  begin
+    Write2('Warning: Rows value > 256, non-standard, some players WILL glitch!'#10);
   end;
   if GetExtension(InputFileName)='wad' then LoadingFromWad:=true;
   if LoadingFromWad then
@@ -720,7 +892,7 @@ begin
     if not Wad.SeekToFile(OemStr(DMMInWadName)) then
     begin
       Wad.Free;
-      Write2('Error: file "'+DMMInWadName+'" not found in WAD!'#10);
+      Write2('Error: File "'+DMMInWadName+'" not found in WAD!'#10);
       Exit;
     end;
     Write2(':: Reading DMM from WAD: "'+DMMInWadName+'"...'#10);
@@ -729,7 +901,7 @@ begin
       or (DMMHeader[3]<>#0) or (DMMHeader[4]<>#0) then
     begin
       Wad.Free;
-      Write2('Error: unknown DMM format!'#10);
+      Write2('Error: Unknown DMM format!'#10);
       Exit;
     end;
     Wad.Read(DMMPatternNumber,1);
@@ -752,7 +924,7 @@ begin
       or (DMMHeader[3]<>#0) or (DMMHeader[4]<>#0) then
     begin
       DMMFile.Free;
-      Write2('Error: unknown DMM format!'#10);
+      Write2('Error: Unknown DMM format!'#10);
       Exit;
     end;
     DMMFile.Read(DMMPatternNumber,1);
@@ -785,12 +957,12 @@ begin
     if not LoadInstrumentFromDMI(XM.Instrument[Counter+1],
       DMMInstruments[Counter].Name,Counter,DMMInstrumentNumber,Wad) then
     begin
-      Write2('Warning: couldn''t find instrument "'+DMMInstruments[Counter].Name+'".'#10);
+      Write2('Warning: Couldn''t find instrument "'+DMMInstruments[Counter].Name+'".'#10);
     end;
   end;
   if not NoStereo and (DMMInstrumentNumber>MAX_SAMPLES) then
   begin
-    Write2('Warning: found more than 11 instruments, stereo is not available.'#10);
+    Write2('Warning: Found more than 11 instruments, stereo is not available.'#10);
   end;
 
   if LoadingFromWad then Wad.Free;
@@ -798,13 +970,16 @@ begin
   Write2(':: Recording notes with quantization = '+Int2Str(Quantization)+'...'#10);
   SetLength(DMMPatterns,DMMPatternNumber);
   NotesRead:=0;
+  // dmm2xm v1.4
+  MinNoteDelay := 256;
+
   for Counter:=0 to DMMPatternNumber-1 do
   begin
     ChannelsFinished:=0;
     repeat
       if NotesRead=DMMNoteNumber then
       begin
-        Write2('Warning: unexpected end of notes, possibly broken data.'#10);
+        Write2('Warning: Unexpected end of notes, possibly broken data.'#10);
         Break;
       end;
       NewPatternLength:=Length(DMMPatterns[Counter])+1;
@@ -817,8 +992,24 @@ begin
     if NotesRead=DMMNoteNumber then Break;
   end;
 
+  // dmm2xm v1.4
+  for Counter:=0 to LastPattern do
+  begin
+    XM.Pattern[Counter].Resize(MaxRows,DMM_8_CHANNELS);
+  end;
+  StartPatternNumber:=0;
   for Counter:=0 to DMMPatternNumber-1 do
-    RecordPatternFromDMMPattern(XM.Pattern[Counter],DMMPatterns[Counter],Counter);
+  begin
+    Write2('DMM pattern '+Int2Str(Counter)+'...');
+    Counter2:=RecordPatternsFromDMMPattern(XM,DMMPatterns[Counter],Counter,StartPatternNumber);
+    if Counter2=1 then
+      Write2(' -> XM pattern '+Int2Str(StartPatternNumber)+#10)
+    else
+      Write2(' -> XM patterns '+Int2Str(StartPatternNumber)+'..'+Int2Str(StartPatternNumber+Counter2-1)+#10);
+    DMM2XMPattern[Counter][0]:=StartPatternNumber;
+    DMM2XMPattern[Counter][1]:=Counter2;
+    Inc(StartPatternNumber,Counter2);
+  end;
 
   for Counter:=0 to Length(MisalignedNotes)-1 do
   begin
@@ -832,32 +1023,76 @@ begin
 
   if Length(MisalignedNotes)>0 then
   begin
-    Write2('Warning: quantization may be wrong or too large, misaligned '
+    Write2('Warning: Quantization may be wrong or too large, misaligned '
       +Int2Str(Length(MisalignedNotes))+' notes.'#10);
   end;
+  // dmm2xm v1.4
+  Write2('Minimum note delay was '+Int2Str(MinNoteDelay)+'.'#10);
 
-  XM.TrackLength:=DMMPatternOrderSize-1;
+  XM.TrackLength:=0;
+  Counter3:=0;
+
+  if DMMPatternOrderSize=0 then
+  begin
+    Write2('Warning: Pattern order missing, rebuilding as sequential.'#10);
+    DMMPatternOrderSize:=DMMPatternNumber;
+    SetLength(DMMPatternOrder,DMMPatternNumber);
+    for Counter:=0 to DMMPatternNumber-1 do
+      DMMPatternOrder[Counter]:=Counter;
+  end;
+
   for Counter:=0 to DMMPatternOrderSize-1 do
   begin
     if DMMPatternOrder[Counter]=255 then
     begin
-      Dec(XM.TrackLength);
       if Counter=DMMPatternOrderSize-1 then
       begin
-        Write2('Warning: unexpected end of pattern order, possibly broken data.'#10);
+        Write2('Warning: Unexpected end of pattern order, possibly broken data.'#10);
         Break;
       end;
-      XM.RestartPosition:=DMMPatternOrder[Counter+1];
+      XM.RestartPosition:=DMM2XMPattern[DMMPatternOrder[Counter+1]][0]; // dmm2xm v1.4
+      Write2('Restart position: '+Int2Str(DMMPatternOrder[Counter+1])+' -> '+Int2Str(XM.RestartPosition)+#10);
       Break;
     end else begin
-      XM.PatternOrder[Counter]:=DMMPatternOrder[Counter];
+      PatShift:=DMM2XMPattern[DMMPatternOrder[Counter]][0];
+      PatLength:=DMM2XMPattern[DMMPatternOrder[Counter]][1];
+      Inc(XM.TrackLength,PatLength);
+      for Counter2:=0 to PatLength-1 do
+      begin
+        XM.PatternOrder[Counter3]:=PatShift+Counter2;
+        Inc(Counter3);
+        //Write2('xm['+Int2Str(PatShift+Counter2)+']:=dmm['+Int2Str(PatShift+Counter2)+']'+#10);
+      end;
     end;
   end;
+  Write2('Track length: '+Int2Str(XM.TrackLength)+#10);
+
+  Write2('DMM Patterns: ');
+  for Counter:=0 to DMMPatternOrderSize-1 do
+  begin
+    if DMMPatternOrder[Counter]=255 then
+    begin
+      Write2('(loop)');
+      break;
+    end;
+    Write2(Int2Str(DMMPatternOrder[Counter])+' ');
+  end;
+  Write2(#10' XM Patterns: ');
+  for Counter:=0 to XM.TrackLength-1 do
+  begin
+    Write2(Int2Str(XM.PatternOrder[Counter])+' ');
+  end;
+  Write2(#10);
 
   Write2(':: Optimizing...'#10);
+  // dmm2xm v1.4
+  for Counter:=StartPatternNumber to LastPattern do
+  begin
+    XM.Pattern[Counter].Resize(0,0);
+  end;
   if UsedChannels<DMM_8_CHANNELS then
   begin
-    for Counter:=0 to LastPattern do
+    for Counter:=0 to StartPatternNumber-1 do
     begin
       if XM.Pattern[Counter].Rows>0 then
         XM.Pattern[Counter].Resize(XM.Pattern[Counter].Rows,UsedChannels);
