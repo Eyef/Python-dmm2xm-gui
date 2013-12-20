@@ -15,7 +15,7 @@ uses Windows,Messages,BeRoXM,Streams,WadFile;
 }
 const
   DMM_8_CHANNELS=8;
-  DMM2XM_VERSION_TEXT='dmm2xm v1.4 [14 Apr 2013] by Grom PE';
+  DMM2XM_VERSION_TEXT='dmm2xm v1.4.1 [20 Dec 2013] by Grom PE & Artem Vasilev (wormsbiysk)';
 
   MAX_SAMPLES=11;
   PAN_SETTING:array[0..MAX_SAMPLES-1] of array[0..MAX_SAMPLES-1] of byte=(
@@ -67,6 +67,8 @@ begin
   Result:=Exp(Exponent*Ln(Number));
 end;
 
+var EmulateBug:boolean;
+
 procedure SampleRateToXM(SampleRate:integer; var RelativeNote,FineTune:integer);
 begin
   if SampleRate<>0 then
@@ -91,7 +93,7 @@ begin
   end;
   if RelativeNote<-127 then RelativeNote:=-127;
   if RelativeNote>127 then RelativeNote:=127;
-  FineTune:=FineTune+64
+  if EmulateBug then FineTune:=FineTune+64
 end;
 
 function XMToSampleRate(RelativeNote,FineTune:integer):integer;
@@ -702,7 +704,7 @@ begin
   begin
     Write2(#10+DMM2XM_VERSION_TEXT+#10
       +#10
-      +'Usage: dmm2xm [-q <number>] [-r <number>] [-o <file>] [-f <name>] [-m]'#10
+      +'Usage: dmm2xm [-q <number>] [-r <number>] [-o <file>] [-f <name>] [-m] [-b]'#10
       +'              <song.dmm>|<file.wad>'#10
       +'Backward conversion: dmm2xm [-o <file>] <song.xm>|<song.mod>'#10
       +#10
@@ -712,6 +714,7 @@ begin
       +'  -o   Set output file. Default value: name of input file + extension.'#10
       +'  -f   Specify DMM file to be converted from WAD. Default WAD: doom2d.wad'#10
       +'  -m   Leave converted song in mono.'#10
+      +'  -b   Emulate SoundBlaster bug at 44 KHz (finetune+64).'#10
       +#10
       +'Note: Used DMI files (instruments) must be in same directory as DMM file'#10
       +'      or in DMI subfolder (dmi\*) and be without extension.'#10);
@@ -752,6 +755,9 @@ begin
     end else if Parameter='-m' then
     begin
       NoStereo:=true;
+    end else if Parameter='-b' then
+    begin
+      EmulateBug:=true;
     end else begin
       InputFileName:=Parameter;
     end;

@@ -51,7 +51,7 @@ dmm2xm searches for instruments in 5 places:
 Instruments should be named like "DMI00nn.smp".
 
 dmm2xm has the following syntax:
-dmm2xm [-q <number>] [-r <number>] [-o <file>] [-f <name>] [-m]
+dmm2xm [-q <number>] [-r <number>] [-o <file>] [-f <name>] [-m] [-b]
        <song.dmm>|<file.wad>
 
 Examples:
@@ -82,6 +82,9 @@ name or in different place.
 File name is case-sensitive.
 
 -m makes converted song mono, instead of stereo.
+
+-b enables bug on SoundBlaster at 44 KHz sample rate. (pitch shift
+up by half of note)
 
 You can get files from doom2d.wad with QPak plugin for Far Manager
 (http://downloads.sourceforge.net/farplugins/qpak162.rar).
@@ -165,6 +168,9 @@ News
 ====
 
 What's new in current version of dmm2xm.
+
+v1.4.1 [20.12.2013]
+- Added Sound Blaster at 44 KHz bug emulation
 
 v1.4 [14.04.2013]
 - Changed the way notes are recorded, now delay effect is used to fit
@@ -259,8 +265,9 @@ They will compile with any Delphi version, starting from 4,
 and also with Free Pascal, starting from version 2.0.4.
 
 If you find bugs or have anything to say,
-you can contact me
+you can contact Grom PE
 - by email/gtalk/xmpp: i@grompe.org.ru
 - by site: http://grompe.org.ru/
 
-Regards, Grom PE
+
+Regards, Grom PE and Artem Vasilev (wormsbiysk\LSA)
