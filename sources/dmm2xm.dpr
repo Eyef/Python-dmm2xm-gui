@@ -91,6 +91,7 @@ begin
   end;
   if RelativeNote<-127 then RelativeNote:=-127;
   if RelativeNote>127 then RelativeNote:=127;
+  FineTune:=FineTune+64
 end;
 
 function XMToSampleRate(RelativeNote,FineTune:integer):integer;
@@ -424,7 +425,7 @@ begin
         Inc(CurrentChanNotes);
       end;
       if UsedChannels<Channel+1 then UsedChannels:=Channel+1;
-      
+
       // dmm2xm v1.4
       if DMMNote.Delay=0 then
       begin
@@ -546,7 +547,7 @@ begin
             ConvertedDMMChannel[ChannelCounter][Len].Volume:=0;
             ConvertedDMMChannel[ChannelCounter][Len].Delay:=Delay[ChannelCounter] mod 256;
           end else begin
-            if IsStopNoteForDMM(Note[ChannelCounter]) then 
+            if IsStopNoteForDMM(Note[ChannelCounter]) then
             begin
               ConvertedDMMChannel[ChannelCounter][Len].Note:=24; // Maybe it's safe to place 0 here?
               ConvertedDMMChannel[ChannelCounter][Len].Instrument:=0;
@@ -652,7 +653,7 @@ begin
     DMILoopStart:=0;
     DMILoopLength:=0;
   end;
-  
+
   SetLength(SampleBuffer,DMILength);
   for Counter:=0 to DMILength-1 do
   begin
@@ -693,7 +694,7 @@ var
   StartPatternNumber:byte;
   DMM2XMPattern:array[0..255] of array[0..1] of byte; // 0 = shift, 1 = length
   PatShift,PatLength:byte;
-  
+
   Counter,Counter2,Counter3:integer;
 begin
   Randomize;
