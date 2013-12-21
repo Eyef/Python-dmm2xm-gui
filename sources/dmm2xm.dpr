@@ -15,7 +15,7 @@ uses Windows,Messages,BeRoXM,Streams,WadFile;
 }
 const
   DMM_8_CHANNELS=8;
-  DMM2XM_VERSION_TEXT='dmm2xm v1.4.1 [20 Dec 2013] by Grom PE & Artem Vasilev (wormsbiysk)';
+  DMM2XM_VERSION_TEXT='dmm2xm v1.4.1 [21 Dec 2013] by Grom PE & Artem Vasilev (wormsbiysk)';
 
   MAX_SAMPLES=11;
   PAN_SETTING:array[0..MAX_SAMPLES-1] of array[0..MAX_SAMPLES-1] of byte=(
@@ -77,6 +77,7 @@ begin
   end else begin
     FineTune:=Round(Log2(1)*1536);
   end;
+  if EmulateBug then FineTune:=FineTune+64;
   RelativeNote:=FineTune div 128;
   if FineTune<0 then
   begin
@@ -93,7 +94,6 @@ begin
   end;
   if RelativeNote<-127 then RelativeNote:=-127;
   if RelativeNote>127 then RelativeNote:=127;
-  if EmulateBug then FineTune:=FineTune+64
 end;
 
 function XMToSampleRate(RelativeNote,FineTune:integer):integer;

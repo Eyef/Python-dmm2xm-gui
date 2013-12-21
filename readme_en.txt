@@ -1,5 +1,5 @@
-dmm2xm v1.4 (14 Apr 2013)
-=========================
+dmm2xm v1.4.1 (21 Dec 2013)
+===========================
 
 
 Contents
@@ -169,7 +169,7 @@ News
 
 What's new in current version of dmm2xm.
 
-v1.4.1 [20.12.2013]
+v1.4.1 [21.12.2013]
 - Added Sound Blaster at 44 KHz bug emulation
 
 v1.4 [14.04.2013]
