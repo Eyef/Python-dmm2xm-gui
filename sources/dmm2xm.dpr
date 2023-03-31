@@ -538,7 +538,7 @@ begin
         NewNote:=Pattern.GetNote(RowCounter,ChannelCounter);
       if ChannelStarted[ChannelCounter] then
       begin
-        if (NewNote.Note<>0) or IsStopNoteForDMM(NewNote) or PatternEnd then
+        if (Delay[ChannelCounter] > 0) and ((NewNote.Note<>0) or IsStopNoteForDMM(NewNote) or PatternEnd) then
         begin
           Len:=Length(ConvertedDMMChannel[ChannelCounter]);
           SetLength(ConvertedDMMChannel[ChannelCounter],Len+1);
