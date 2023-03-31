@@ -15,7 +15,7 @@ uses Windows,Messages,BeRoXM,Streams,WadFile;
 }
 const
   DMM_8_CHANNELS=8;
-  DMM2XM_VERSION_TEXT='dmm2xm v1.4.1 [21 Dec 2013] by Grom PE & Artem Vasilev (wormsbiysk)';
+  DMM2XM_VERSION_TEXT='dmm2xm v1.5 [31 Mar 2023] by Grom PE & Artem Vasilev (wormsbiysk)';
 
   MAX_SAMPLES=11;
   PAN_SETTING:array[0..MAX_SAMPLES-1] of array[0..MAX_SAMPLES-1] of byte=(
@@ -588,6 +588,38 @@ begin
         Inc(Delay[ChannelCounter],Round(NewSpeed*166/NewTempo));
         if Delay[ChannelCounter]>=256 then
         begin
+          // FIXME: bugfix by copypaste
+          if (Note[ChannelCounter].Note<>0) or IsStopNoteForDMM(Note[ChannelCounter]) then
+          begin
+            Len:=Length(ConvertedDMMChannel[ChannelCounter]);
+            SetLength(ConvertedDMMChannel[ChannelCounter],Len+1);
+            if IsStopNoteForDMM(Note[ChannelCounter]) then
+            begin
+              ConvertedDMMChannel[ChannelCounter][Len].Note:=24; // Maybe it's safe to place 0 here?
+              ConvertedDMMChannel[ChannelCounter][Len].Instrument:=0;
+              ConvertedDMMChannel[ChannelCounter][Len].Volume:=0;
+            end else begin
+              ConvertedDMMChannel[ChannelCounter][Len].Note:=Note[ChannelCounter].Note-25;
+              ConvertedDMMChannel[ChannelCounter][Len].Volume:=GetNoteVolumeForDMM(Note[ChannelCounter]);
+              if Note[ChannelCounter].Instrument=0 then
+              begin
+                ConvertedDMMChannel[ChannelCounter][Len].Instrument:=RememberedInstrument[ChannelCounter];
+                if RememberedInstrument[ChannelCounter]=0 then
+                  ConvertedDMMChannel[ChannelCounter][Len].Volume:=0;
+              end else begin
+                ConvertedDMMChannel[ChannelCounter][Len].Instrument:=Note[ChannelCounter].Instrument;
+              end;
+              // todo: here we go handling various XM effects that apply to notes...
+            end;
+            ConvertedDMMChannel[ChannelCounter][Len].Delay:=255;
+            Dec(Delay[ChannelCounter],255);
+            Note[ChannelCounter].Note := 0;
+            Note[ChannelCounter].Instrument := 0;
+            Note[ChannelCounter].Volume := 0;
+            Note[ChannelCounter].Effect := 0;
+            Note[ChannelCounter].EffectParameter := 0;
+          end;
+          // end copypaste
           Len:=Length(ConvertedDMMChannel[ChannelCounter]);
           SetLength(ConvertedDMMChannel[ChannelCounter],Len+1);
           ConvertedDMMChannel[ChannelCounter][Len].Note:=254;

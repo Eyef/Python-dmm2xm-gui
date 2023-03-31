@@ -1,5 +1,5 @@
-dmm2xm v1.4.1 (21 Dec 2013)
-===========================
+dmm2xm v1.5 (31 Mar 2023)
+=========================
 
 
 Contents
@@ -168,6 +168,9 @@ News
 ====
 
 What's new in current version of dmm2xm.
+
+v1.5 [31.03.2023]
+- Fixed bug in xm->dmm conversion: long delays caused notes to shift.
 
 v1.4.1 [21.12.2013]
 - Added Sound Blaster at 44 KHz bug emulation
