@@ -1,5 +1,5 @@
-dmm2xm v1.5 (31 Mar 2023)
-=========================
+dmm2xm v1.5.1 (13 Apr 2023)
+===========================
 
 
 Contents
@@ -130,6 +130,9 @@ How to edit song before backward conversion to get best results:
 - Sometimes it's better to replace setting volume to note stop,
   if volume is set without replaying note.
   Doom2D will play note with starting volume.
+- If there are notes on through the next pattern, DMM will silence
+  them. You can either start the note on the new pattern, or merge
+  the pattern with the next one.
 
 
 Messages
@@ -168,6 +171,9 @@ News
 ====
 
 What's new in current version of dmm2xm.
+
+v1.5.1 [13.04.2023]
+- Corrected the previous fix.
 
 v1.5 [31.03.2023]
 - Fixed bug in xm->dmm conversion: long delays caused notes to shift.

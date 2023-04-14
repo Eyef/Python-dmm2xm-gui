@@ -2,6 +2,7 @@
 
 # Set the default behavior, in case people don't have core.autocrlf set.
 * text=auto
+*.sh text eol=lf
 
 # Declare files that will always have CRLF line endings on checkout.
 /sources/** text eol=crlf
@@ -13,3 +14,4 @@
 # Specific settings not applicable with global wildcards.
 /readme.txt working-tree-encoding=WINDOWS-1251 encoding=WINDOWS-1251
 /*.bat working-tree-encoding=WINDOWS-1251 encoding=WINDOWS-1251
+/conv_wad_wine.bat working-tree-encoding=IBM866 encoding=IBM866
